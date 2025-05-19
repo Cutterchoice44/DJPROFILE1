@@ -1,143 +1,209 @@
+<!-- artists.html: Main listing of Cutters Choice Radio DJs -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <!-- Prevent browser caching of this page -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cutters Choice Radio</title>
-  
-  <!-- Preconnects for faster API/widget loads -->
-  <link rel="preconnect" href="https://app.radiocult.fm">
-  <link rel="preconnect" href="https://widget.mixcloud.com">
+  <title>Cutters Choice DJs</title>
 
-  <!-- Main stylesheet -->
-  <link rel="stylesheet" href="style.css?v=1746926219580">
-  <!-- Bebas Neue from Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+  <!-- Bebas Neue font -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap">
 
-  <!-- Socket.IO client for chat participants -->
-  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js" defer></script>
-
-  <!-- Google Analytics Tag -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3MSGZZ5QL6"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}  
-    gtag('js', new Date());
-    gtag('config', 'G-3MSGZZ5QL6');
-  </script>
-
+  <style>
+    :root {
+      --brand-teal: #5A8785;
+      --bg-dark: #000;
+      --text-light: #fafafa;
+      --gap: 1rem;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg-dark);
+      color: var(--text-light);
+      font-family: Arial, sans-serif;
+      line-height: 1.4;
+    }
+    header {
+      background: url('https://i.imgur.com/JHiiSW4.png') center/cover no-repeat;
+      border-bottom: 5px solid var(--brand-teal);
+      position: relative;
+      padding: 0.8rem 0; /* reduced by 20% */
+      text-align: center;
+    }
+    header img.logo {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 160px; /* increased by another 40% */
+    }
+    header img.left { left:1rem; }
+    header img.right { right:1rem; }
+    header h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 6rem; /* doubled size */
+      color: #fff;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin: 0;
+    }
+    #artists-container {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap);
+      padding: var(--gap);
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    @media(max-width: 1024px) { #artists-container { grid-template-columns: repeat(3, 1fr); } }
+    @media(max-width: 768px)  { #artists-container { grid-template-columns: repeat(2, 1fr); } }
+    @media(max-width: 480px)  { #artists-container { grid-template-columns: 1fr; } }
+    .card {
+      border: 2px solid var(--brand-teal);
+      background: var(--bg-dark);
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      overflow: hidden;
+    }
+    .card h2 {
+      font-family: 'Bebas Neue', sans-serif;
+      color: var(--brand-teal);
+      font-size: 1.25rem;
+      text-transform: uppercase;
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--brand-teal);
+      margin: 0;
+    }
+    .card img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      display: block;
+    }
+    .card .next-show {
+      padding: 0.75rem;
+      color: #fff;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .card .next-show h3 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      margin: 0 0 0.5rem 0;
+      color: var(--text-light);
+    }
+    .card .next-show p {
+      font-size: 0.85rem;
+      line-height: 1.2;
+      margin: 0;
+    }
+    .error {
+      text-align: center;
+      color: #f55;
+      margin-top: 2rem;
+    }
+  </style>
 </head>
 <body>
-<header class="header-banner">
-  <div class="header-gif-right"></div>
-  <div class="header-gif-left"></div>
+  <header>
+    <img src="https://i.imgur.com/72gdPJY.png" alt="Logo" class="logo left">
+    <h1>Cutters Choice DJs</h1>
+    <img src="https://i.imgur.com/72gdPJY.png" alt="Logo" class="logo right">
+  </header>
+  <main>
+    <div id="artists-container"></div>
+    <p id="error" class="error" style="display:none;"></p>
+  </main>
 
-  <div class="logo-container">
-    <img
-      class="logo"
-      src="https://i.imgur.com/72gdPJY.png"
-      alt="Cutters Choice Radio Logo"
-      loading="lazy"
-    >
-  </div>
+  <script>
+    const BASE_URL   = 'https://api.radiocult.fm/api';
+    const STATION_ID = 'cutters-choice-radio';
+    const API_KEY    = 'pk_0b8abc6f834b444f949f727e88a728e0';
 
-  <div class="title">
-    <h1>Cutters Choice Radio</h1>
-    <p class="tagline">The home of relentless flavas and significant bangers!</p>
-  </div>
+    function normalizeTags(tags) {
+      if (Array.isArray(tags)) return tags.map(t => String(t).toLowerCase());
+      if (typeof tags === 'string') return tags.split(',').map(t => t.trim().toLowerCase());
+      return [];
+    }
 
-  <div class="logo-container">
-    <img
-      class="logo"
-      src="https://i.imgur.com/72gdPJY.png"
-      alt="Cutters Choice Radio Logo"
-      loading="lazy"
-    >
-  </div>
-</header>
+    async function loadArtists() {
+      try {
+        const res = await fetch(`${BASE_URL}/station/${STATION_ID}/artists`, {
+          headers: { 'x-api-key': API_KEY }
+        });
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        const { artists = [] } = await res.json();
+        const visible = artists.filter(a => normalizeTags(a.tags).includes('website'));
 
-<div class="teal-line"></div>
-  
-<div class="grid-container">
-  <!-- CHAT SECTION -->
-  <section class="chat">
-    <h2>Cutters Chat</h2>
-    <iframe
-      title="Cutters Choice Radio Chat"
-      src="https://app.radiocult.fm/embed/chat/cutters-choice-radio?theme=midnight&primaryColor=%235A8785&corners=sharp"
-      width="100%" height="700" frameborder="0"
-      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-      seamless loading="lazy">
-    </iframe>
-    <div class="chat-actions">
-      <button class="popout-btn" onclick="openChatPopup()">Pop Out Chat</button>
-    </div>
-    <div class="rc-user-list-container">
-      <h3></h3>
-      <div class="rc-user-list"></div>
-    </div>
-  </section>
+        const container = document.getElementById('artists-container');
+        if (visible.length === 0) {
+          const errEl = document.getElementById('error');
+          errEl.textContent = 'No DJs found with the "website" tag.';
+          errEl.style.display = 'block';
+          return;
+        }
+        container.innerHTML = '';
 
-  <!-- LIVE PLAYER SECTION -->
-  <section class="live-player">
-    <h2 id="now-dj">Live Now</h2>
-    <div class="player-container">
-      <iframe id="inlinePlayer"
-        title="Cutters Choice Radio player"
-        src="https://app.radiocult.fm/embed/square-player/cutters-choice-radio?theme=midnight&primaryColor=%235A8785&corners=sharp"
-        allow="autoplay" loading="lazy">
-      </iframe>
-      <div id="now-archive">Loading archive show…</div>
-      <button id="popOutBtn" class="popout-btn">Pop Out Player</button>
-      <button id="chatPopupBtn" class="popout-btn chat-btn-mobile" onclick="openChatPopup()">Chat</button>
-    </div>
-    <h3>This Weeks Shows</h3>
-    <img id="now-art" src="https://i.imgur.com/EHhS47F.png" alt="Current DJ Artwork" loading="lazy">
-  </section>
+        visible.forEach(artist => {
+          const card = document.createElement('a');
+          card.href = `artist.html?id=${artist.id}`;
+          card.className = 'card';
 
-  <!-- SCHEDULE SECTION -->
-  <section class="schedule">
-    <h2 class="schedule-heading">This Week’s Lineup</h2>
-    <div class="schedule-scroll" id="schedule-container">
-      <p>Loading this week’s schedule…</p>
-    </div>
-  </section>
+          const title = document.createElement('h2');
+          title.textContent = artist.name;
+          card.appendChild(title);
 
-    <!-- MIXCLOUD ARCHIVE SECTION -->
-  <section class="mixcloud">
-    <h2>Latest Archived Shows</h2>
-    <div id="mixcloud-list"></div>
-    <div class="add-mixcloud">
-      <input id="mixcloud-url" type="text" placeholder="Paste Mixcloud URL here…">
-      <button onclick="addMixcloud()">Add Show</button>
-    </div>
-  </section>
-</div> <!-- end grid-container -->
+          const img = document.createElement('img');
+          img.src = artist.logo?.['512x512'] || artist.logo?.default || '';
+          img.alt = artist.name;
+          card.appendChild(img);
 
-<footer class="banner">
-  <a href="#merch">Merch</a>
-  <a href="#djs">Our DJs</a>
-  <a href="#events">Events</a>
-  <a href="#history">History</a>
-</footer>
+          const show = document.createElement('div');
+          show.className = 'next-show';
+          show.innerHTML = `<h3>Next Scheduled Show</h3><p id="next-${artist.id}">Loading…</p>`;
+          card.appendChild(show);
 
-    <script src="script.js?v=1746926219580" defer></script>
-    <script src="slideshow.js?v=1746926219580" defer></script>
+          container.appendChild(card);
 
-    <!-- Chat Modal for Mobile -->
-    <div id="chatModal" style="display:none;">
-      <div class="modal-content">
-        <button class="close-btn" onclick="closeChatModal()">Close</button>
-        <iframe
-          id="chatModalIframe"
-          title="Cutters Chat Modal"
-          allow="autoplay">
-        </iframe>
-      </div>
-    </div>
-  </body>
+          loadNextShow(artist.id);
+        });
+      } catch (err) {
+        console.error('Error loading artists:', err);
+        const errEl = document.getElementById('error');
+        errEl.textContent = 'Error loading DJs: ' + err.message;
+        errEl.style.display = 'block';
+      }
+    }
+
+    async function loadNextShow(artistId) {
+      try {
+        const now = new Date().toISOString();
+        const oneYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+        const url = `${BASE_URL}/station/${STATION_ID}/artists/${artistId}/schedule?startDate=${now}&endDate=${oneYear}`;
+        const res = await fetch(url, { headers: { 'x-api-key': API_KEY } });
+        if (!res.ok) throw new Error(`Schedule API ${res.status}`);
+        const { schedules = [] } = await res.json();
+        const nextEl = document.getElementById(`next-${artistId}`);
+        if (schedules.length > 0) {
+          const next = schedules[0];
+          const dt = new Date(next.startDateUtc);
+          nextEl.textContent = dt.toLocaleString('en-NZ', {
+            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+          });
+        } else {
+          nextEl.textContent = 'TBA';
+        }
+      } catch (err) {
+        console.error(`Error loading schedule for ${artistId}:`, err);
+        const nextEl = document.getElementById(`next-${artist.id}`);
+        if (nextEl) nextEl.textContent = 'Error';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadArtists);
+  </script>
+</body>
 </html>
