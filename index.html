@@ -54,13 +54,14 @@
 
     #artists-container {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(8, 1fr);
       gap: var(--gap);
       padding: var(--gap);
-      max-width: 1200px;
+      max-width: 1600px;
       margin: 0 auto;
     }
-    @media (max-width: 1024px) { #artists-container { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 1440px) { #artists-container { grid-template-columns: repeat(6, 1fr); } }
+    @media (max-width: 1024px) { #artists-container { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width:  768px) { #artists-container { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width:  480px) { #artists-container { grid-template-columns: 1fr; } }
 
@@ -160,8 +161,7 @@
 
         visible.forEach(artist => {
           const card = document.createElement('a');
-          // ← point to your individual profile page, passing the artist ID
-        card.href = `index_IND_DJ.html?id=${artist.id}`;
+          card.href = `index_IND_DJ.html?id=${artist.id}`;
           card.className = 'card';
 
           const title = document.createElement('h2');
